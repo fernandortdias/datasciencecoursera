@@ -1,0 +1,88 @@
+---
+title: "Project"
+author: "Fernando R T Dias"
+date: "Friday, Jun 19, 2015"
+output: html_document
+---
+
+### Objectives:
+
+1. Build a model that predicts the manner in which participants did the exercise ("classe" variable in the training set), using any of the other variables to predict with.
+
+2. Explain how the model was built and the reason why the choices were made;
+
+3. Explain how cross validation was used;
+
+4. Estimate the expected out of sample error, from cross validation;
+
+5. Use the prediction model to predict the 20 different test cases given.
+
+### The Model
+
+#### Loading libraries and setting seed:
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+library(knitr)
+library(caret)
+library(MASS)
+library(gbm)
+library(e1071)
+set.seed(1)
+``` 
+
+#### Loading training data:
+
+Replacing empty fields and "#DIV/0!" by NA.
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+training <- read.csv("pml-training.csv", na.strings = c("#DIV/0!", "NA", ""))
+```
+
+#### Cleansing training data:
+The first 7 features are not relevant to the model (user name, timestamps, time windows). Also, 100 columns are statistcs on other columns ("avg"", "stdev"", etc) taken on each time window as explained by Ugulino et. al. (2012), with more than 95% of them filled with NAs (no other column has any NA). We will ignore those 7 + 100 columns.
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+training <- training[,-(1:7)]
+training <- training[,!as.vector(apply(training, 2, anyNA), mode = "logical")]
+```
+
+### Cross validation
+
+#### Creating a data partition from the cleansed training set:
+I.e., creating a testing subset and a training subset from the original traning data set.
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+inTrain <- createDataPartition(y = training$classe, p = 0.75, list = FALSE)
+```
+
+#### Fitting model for the training subset:
+We chose Generalized Boosted Regression Modeling (gbm) method. Although it takes much more time to process than simpler models, it is one of the most accurate out of the box regression methods.
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+modFit1 <- train(classe ~ ., method = "gbm", data = training[inTrain,], verbose = FALSE)
+``` 
+
+#### Showing confusion matrix between training subset and testing subset:
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+confusionMatrix(predict(modFit1, newdata = training[-inTrain,]), training[-inTrain,]$classe)
+``` 
+
+The out of sample Accuracy as estimated from cross validation between training and testing subsets was 0.9643, with a 95% CI of being in the interval (0.9587, 0.9693).
+
+### Predict
+
+#### Fitting model for the training data set:
+Now using the whole original (and cleansed) training set.
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+modFit2 <- train(classe ~ ., method = "gbm", data = training, verbose = FALSE)
+``` 
+
+#### Reading 20 test cases file:
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+testing <- read.csv("pml-testing.csv", na.strings = c("#DIV/0!", "NA", ""))
+``` 
+
+#### Predicting 'classe' for the 20 test cases:
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+predict(modFit2, newdata = testing)
+``` 
+
+#### Reference:
+
+Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science. , pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6. Read more: http://groupware.les.inf.puc-rio.br/har#ixzz3dXSWrZHc
