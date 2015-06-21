@@ -1,0 +1,78 @@
+---
+title: "Project"
+author: "Fernando R T Dias"
+date: "Friday, Jun 19, 2015"
+output: html_document
+---
+
+### Objectives:
+
+1. Build a model that predicts the manner in which participants did the exercise ("classe" variable in the training set), using any of the other variables to predict with.
+
+1. Explain how the model was built and the reason why the choices were made;
+
+2. Explain how cross validation was used;
+
+3. Estimate the expected out of sample error, from cross validation;
+
+5. Use the prediction model to predict the 20 different test cases given.
+
+### The Model
+
+#### Loading libraries and setting seed:
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+library(knitr)
+library(caret)
+library(MASS)
+library(e1071)
+set.seed(1)
+``` 
+
+#### Loading training data:
+
+Replacing empty fields and "#DIV/0!" by NA.
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+training <- read.csv("pml-training.csv", na.strings = c("#DIV/0!", "NA", ""))
+```
+
+#### Cleansing training data:
+Exploring data, we see the first 7 features are not relevant to the model (user name, timestamps, time windows). We see also that 100 columns have more than 95% of them filled with NAs, and no other column has any NA. Those 100 columns are statistcs on other columns ("avg"", "stdev"", etc) taken on each time window as explained by Ugulino et. al. (2012). We will ignore those 7 + 100 columns.
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+training <- training[,-(1:7)]
+training <- training[,!as.vector(apply(training, 2, anyNA), mode = "logical")]
+```
+
+### Cross validation
+
+#### Creating a data partition:
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+inTrain <- createDataPartition(y = training$classe, p = 0.75, list = FALSE)
+```
+
+#### Fitting model modFit1:
+"Classe" is a 5-class outcome, so glm method can't be used. We choose lda as method.
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+modFit <- train(classe ~ ., method = "gbm", data = training[inTrain,])
+``` 
+
+#### Showing confusion matrix:
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+confusionMatrix(predict(modFit, newdata = training[-inTrain,]), training[-inTrain,]$classe)
+``` 
+
+### Predict
+
+#### Reading 20 test cases file:
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+testing  <- read.csv("pml-testing.csv", na.strings = c("#DIV/0!", "NA", ""))
+``` 
+
+#### Predicting 'classe' using modFit2:
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+predict(modFit, newdata = testing)
+``` 
+
+#### Reference:
+
+Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science. , pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6. Read more: http://groupware.les.inf.puc-rio.br/har#ixzz3dXSWrZHc
